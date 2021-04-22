@@ -48,12 +48,12 @@ function updateOAuthKey(apiKeyId, tokenType = 'Bearer', accessToken) {
 
 /* eslint-disable no-console */
 // Gets Access-Token in exchange of Authorization Code
-async function fetchAccessToken(tokenUrl, clientId, clientSecret, redirectUrl, grantType, authCode, sendClientSecretIn = 'header', apiKeyId, authFlowDivEl, scopes = null) {
+async function fetchAccessToken(tokenUrl, clientId, clientSecret, redirectUrl, grantType, authCode, sendClientSecretIn = 'header', apiKeyId, authFlowDivEl, scopes = null, username = null, password = null) {
   const respDisplayEl = authFlowDivEl ? authFlowDivEl.querySelector('.oauth-resp-display') : undefined;
   const urlFormParams = new URLSearchParams();
   const headers = new Headers();
   urlFormParams.append('grant_type', grantType);
-  if (grantType !== 'client_credentials') {
+  if (grantType !== 'client_credentials' && grantType !== 'password') {
     urlFormParams.append('redirect_uri', redirectUrl);
   }
   if (authCode) {
@@ -68,6 +68,10 @@ async function fetchAccessToken(tokenUrl, clientId, clientSecret, redirectUrl, g
   }
   if (scopes) {
     urlFormParams.append('scope', scopes);
+  }
+  if (grantType === 'password') {
+    urlFormParams.append("username", username);
+    urlFormParams.append("password", password);
   }
 
   try {
@@ -195,6 +199,11 @@ async function onInvokeOAuthFlow(apiKeyId, flowType, authUrl, tokenUrl, e) {
     grantType = 'client_credentials';
     const selectedScopes = checkedScopeEls.map((v) => v.value).join(' ');
     fetchAccessToken.call(this, tokenUrl, clientId, clientSecret, redirectUrlObj.toString(), grantType, '', sendClientSecretIn, apiKeyId, authFlowDivEl, selectedScopes);
+  } else if (flowType === 'password') {
+    grantType = "password";
+    const username = authFlowDivEl.querySelector(".api-key-user") ? authFlowDivEl.querySelector(".api-key-user").value.trim() : "";
+    const password = authFlowDivEl.querySelector(".api-key-password") ? authFlowDivEl.querySelector(".api-key-password").value.trim() : "";
+    fetchAccessToken.call(this, tokenUrl, clientId, clientSecret, redirectUrlObj.toString(), grantType, "", sendClientSecretIn, apiKeyId, authFlowDivEl, null, username, password);
   }
 }
 /* eslint-enable no-console */
@@ -288,7 +297,15 @@ function oAuthFlowTemplate(flowName, clientId, clientSecret, apiKeyId, authFlow)
 `
               : html`<div style='width:5px'></div>`
             }
-            ${flowName === 'authorizationCode' || flowName === 'clientCredentials' || flowName === 'implicit'
+            ${flowName === 'password'
+              ? html`
+                <br/><br/>
+                <input type="text" value = "" placeholder="username" spellcheck="false" class="api-key-user" part="textbox textbox-username">
+                <input type="password" value = "" placeholder="password" spellcheck="false" class="api-key-password" style = "margin:0 5px;" part="textbox textbox-password">
+                `
+              : ''
+            }
+            ${flowName === 'authorizationCode' || flowName === 'clientCredentials' || flowName === 'implicit' || flowName === 'password'
               ? html`
                 <button class="m-btn thin-border" part="btn btn-outline"
                   @click="${(e) => { onInvokeOAuthFlow.call(this, apiKeyId, flowName, authorizationUrl, tokenUrl, e); }}"
@@ -296,14 +313,6 @@ function oAuthFlowTemplate(flowName, clientId, clientSecret, apiKeyId, authFlow)
               : ''
             }
           </div>
-          ${flowName === 'password'
-            ? html`
-              <div style="display:flex; max-height:28px; margin-top:2px">
-                <input type="text" value = "" placeholder="username" spellcheck="false" class="api-key-user" part="textbox textbox-username">
-                <input type="password" value = "" placeholder="password" spellcheck="false" class="api-key-password" style = "margin:0 5px;" part="textbox textbox-password">
-              </div>`
-            : ''
-          }  
           <div class="oauth-resp-display red-text small-font-size"></div>
           `
         : ''
